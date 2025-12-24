@@ -178,7 +178,7 @@ function TypeDropdown({ allTypes, selected, onChange }: { allTypes: string[], se
         {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-xl z-50 flex flex-col max-h-[400px]">
+        <div className="absolute top-full left-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl z-50 flex flex-col max-h-[400px]">
           <div className="p-2 border-b border-gray-100"><input autoFocus type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500" /></div>
           <div className="overflow-y-auto flex-1 p-1">
             {filtered.map(type => (
@@ -249,24 +249,24 @@ function ResourceNode({ node, depth = 0, autoExpand, onSelect, expansionKey }: {
   const friendlyName = getHandlerName(node.resource);
 
   return (
-    <div className={`${depth === 0 ? '' : 'border-l border-gray-100 ml-6'}`}>
-      <div className={`flex items-center py-2 px-4 hover:bg-gray-50 transition-colors group cursor-pointer ${node.isMatch ? 'bg-indigo-50/50' : ''}`} onClick={(e) => { if (hasChildren && (e.target as HTMLElement).closest('.expand-toggle')) setExpanded(!expanded); else onSelect(node.resource); }}>
+    <div className={`${depth === 0 ? '' : 'border-l border-gray-100 ml-6'} min-w-0`}>
+      <div className={`flex items-center py-2 px-4 hover:bg-gray-50 transition-colors group cursor-pointer min-w-0 ${node.isMatch ? 'bg-indigo-50/50' : ''}`} onClick={(e) => { if (hasChildren && (e.target as HTMLElement).closest('.expand-toggle')) setExpanded(!expanded); else onSelect(node.resource); }}>
         <div className="expand-toggle mr-2 w-4 flex-shrink-0 text-gray-400 hover:text-indigo-600 p-1 -m-1 rounded">{hasChildren && (expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />)}</div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`text-sm truncate ${node.isMatch ? 'text-indigo-700 font-bold' : hasChildren ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>{resourceId}</span>
-            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${node.resource.type.startsWith('sst:') ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{node.resource.type.split(':').pop()}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-sm truncate min-w-0 flex-1 ${node.isMatch ? 'text-indigo-700 font-bold' : hasChildren ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>{resourceId}</span>
+            <span className={`inline-flex flex-shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${node.resource.type.startsWith('sst:') ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>{node.resource.type.split(':').pop()}</span>
           </div>
           {friendlyName && (
-            <div className="flex items-center gap-1 mt-0.5 text-indigo-500">
-              <FileCode className="w-3 h-3" />
-              <span className="text-[10px] font-bold uppercase tracking-tight">{friendlyName}</span>
+            <div className="flex items-center gap-1 mt-0.5 text-indigo-500 min-w-0">
+              <FileCode className="w-3 h-3 flex-shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-tight truncate">{friendlyName}</span>
             </div>
           )}
           {node.resource.outputs?.arn && !friendlyName && <div className="text-xs text-gray-400 font-mono mt-0.5 truncate">{safeRender(node.resource.outputs.arn)}</div>}
         </div>
       </div>
-      {expanded && hasChildren && <div className="pb-1">{node.children.map(child => <ResourceNode key={child.resource.urn} node={child} depth={depth + 1} autoExpand={autoExpand} onSelect={onSelect} expansionKey={expansionKey} />)}</div>}
+      {expanded && hasChildren && <div className="pb-1 min-w-0">{node.children.map(child => <ResourceNode key={child.resource.urn} node={child} depth={depth + 1} autoExpand={autoExpand} onSelect={onSelect} expansionKey={expansionKey} />)}</div>}
     </div>
   );
 }
@@ -368,9 +368,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex overflow-hidden">
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${selectedResource ? 'mr-[500px]' : ''} overflow-hidden h-screen`}>
+      <div className="flex-1 flex flex-col overflow-hidden h-screen relative">
         <header className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16">
+          <div className="w-[80%] mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="bg-indigo-600 p-2 rounded-lg"><Layers className="w-6 h-6 text-white" /></div>
               <h1 className="text-xl font-bold tracking-tight text-gray-900 text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">Ghost Viewer</h1>
@@ -403,7 +403,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 overflow-y-auto">
+        <main className="w-[80%] mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 overflow-y-scroll">
           {loading ? <div className="py-20 text-center text-indigo-500"><RefreshCw className="w-10 h-10 animate-spin mx-auto" /></div> : error ? <div className="bg-red-50 p-6 rounded-xl text-red-700">{error}</div> : (activeTab === 'explorer' ? <StateExplorer resources={resources} onSelect={setSelectedResource} metadata={metadata} /> : <GhostHunter metadata={metadata} />)}
         </main>
       </div>
@@ -438,25 +438,25 @@ function StateExplorer({ resources, onSelect, metadata }: { resources: Resource[
            {Object.entries(metadata).map(([k, v]) => (<div key={k} className="flex flex-col"> <span className="text-[10px] text-indigo-400 uppercase font-black">{k}</span> <span className="font-mono font-bold text-white">{v}</span> </div>))}
         </div>
       )}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center sticky top-0 z-10 transition-all">
-        <div className="flex items-center gap-4 flex-1 w-full">
-          <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search resources..." value={query} onChange={e => setQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center sticky top-0 z-10">
+        <div className="flex items-center gap-4 flex-1 w-full min-w-0">
+          <div className="relative flex-1 max-w-sm min-w-0"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search resources..." value={query} onChange={e => setQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" /></div>
           <TypeDropdown allTypes={allTypes} selected={selectedTypes} onChange={setSelectedTypes} />
           {(query || activeFilters.length > 0 || selectedTypes.length > 0) && <button onClick={() => { setQuery(''); setActiveFilters([]); setSelectedTypes([]); }} className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Clear Filters"><Trash2 className="w-4 h-4" /></button>}
         </div>
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
           <div className="flex bg-gray-100 p-1 rounded-lg gap-1"><button onClick={() => setExpansionKey(p => p >= 0 ? p + 1 : 1)} className="p-1.5 hover:bg-white rounded transition-all text-gray-500" title="Expand All"><Maximize2 className="w-4 h-4" /></button><button onClick={() => setExpansionKey(p => p <= 0 ? p - 1 : -1)} className="p-1.5 hover:bg-white rounded transition-all text-gray-500" title="Collapse All"><Minimize2 className="w-4 h-4" /></button></div>
           <div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md ${viewMode === 'list' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`} title="List View"><List className="w-4 h-4" /></button><button onClick={() => setViewMode('tree')} className={`p-1.5 rounded-md ${viewMode === 'tree' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`} title="Tree View"><Network className="w-4 h-4" /></button><button onClick={() => setViewMode('categorized')} className={`p-1.5 rounded-md ${viewMode === 'categorized' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`} title="Categories"><LayoutGrid className="w-4 h-4" /></button></div>
           <div className="flex bg-gray-100 p-1 rounded-lg gap-1 text-[10px] font-bold uppercase">{['all', 'aws', 'sst:aws', 'sst'].map(f => (<button key={f} onClick={() => f === 'all' ? setActiveFilters([]) : setActiveFilters(p => p.includes(f) ? p.filter(x => x !== f) : [...p, f])} className={`px-3 py-1.5 rounded-md ${ (f === 'all' ? activeFilters.length === 0 : activeFilters.includes(f)) ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>{f === 'sst:aws' ? 'SST AWS' : f === 'sst' ? 'SST' : f}</button>))}</div>
         </div>
       </div>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[400px] w-full">
         <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center"><h2 className="font-semibold text-gray-900">{viewMode === 'categorized' ? 'Categorized Resources' : viewMode === 'tree' ? 'Component Tree' : 'Flat List'} <span className="text-gray-400 font-normal ml-2">{filteredItems.length} matched</span></h2></div>
-        <div>
+        <div className="w-full overflow-hidden">
           {viewMode !== 'list' ? (
-            <div className="divide-y divide-gray-50">{treeGroups.length === 0 && <div className="p-12 text-center text-gray-500">No results.</div>}{treeGroups.map(group => <TypeGroupNode key={group.typeName} group={group} autoExpand={!!query} onSelect={onSelect} expansionKey={expansionKey} />)}</div>
+            <div className="divide-y divide-gray-50 w-full">{treeGroups.length === 0 && <div className="p-12 text-center text-gray-500">No results.</div>}{treeGroups.map(group => <TypeGroupNode key={group.typeName} group={group} autoExpand={!!query} onSelect={onSelect} expansionKey={expansionKey} />)}</div>
           ) : (
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-gray-500 font-medium"><tr><th className="px-6 py-3">Type</th><th className="px-6 py-3">ID / Name</th><th className="px-6 py-3 w-20">Source</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredItems.map((r, i) => { 
+            <div className="overflow-x-auto w-full"><table className="w-full text-left text-sm table-fixed"><thead className="bg-gray-50 text-gray-500 font-medium"><tr><th className="px-6 py-3 w-1/3">Type</th><th className="px-6 py-3 w-1/2">ID / Name</th><th className="px-6 py-3 w-24">Source</th></tr></thead><tbody className="divide-y divide-gray-100">{filteredItems.map((r, i) => { 
               const rId = getResourceId(r); 
               const fName = getHandlerName(r); 
               return (<tr key={r.urn + i} onClick={() => onSelect(r)} className="hover:bg-gray-50 transition-colors cursor-pointer">
