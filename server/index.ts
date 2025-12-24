@@ -7,9 +7,45 @@ import {
   ResourceGroupsTaggingAPIClient,
   GetResourcesCommand,
 } from "@aws-sdk/client-resource-groups-tagging-api";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function isS3Path(p: string): boolean {
+  return p.startsWith("s3://");
+}
+
+async function readStateFile(p: string): Promise<any> {
+  let actualPath = p;
+  let region = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || "us-east-1";
+
+  // Check for region suffix if it's an S3 path (e.g. s3://bucket/key:us-west-2)
+  if (p.startsWith("s3://") && p.lastIndexOf(":") > 4) {
+    const lastColon = p.lastIndexOf(":");
+    const potentialRegion = p.substring(lastColon + 1);
+    if (potentialRegion.match(/^[a-z]{2}-[a-z]+-\d+$/)) {
+        region = potentialRegion;
+        actualPath = p.substring(0, lastColon);
+    }
+  }
+
+  if (isS3Path(actualPath)) {
+    const url = new URL(actualPath);
+    const bucket = url.hostname;
+    const key = url.pathname.substring(1);
+    const client = new S3Client({ region }); 
+    const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+    const response = await client.send(command);
+    const data = await response.Body?.transformToString();
+    if (!data) throw new Error("Empty S3 object");
+    return JSON.parse(data);
+  } else {
+    if (!fs.existsSync(p)) throw new Error("File not found");
+    const data = fs.readFileSync(p, "utf-8");
+    return JSON.parse(data);
+  }
+}
 
 function findSstV2State(root: string): { path: string; app: string; stage: string } | null {
   console.log(`[findSstV2State] Searching in: ${root}`);
@@ -149,10 +185,11 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
 
     // 1. GET /api/config
     app.get("/api/config", (_req, res) => {
+        const exists = isS3Path(STATE_FILE) ? true : fs.existsSync(STATE_FILE);
         res.json({
             stateFile: STATE_FILE,
             projectRoot: PROJECT_ROOT,
-            exists: fs.existsSync(STATE_FILE),
+            exists,
             app: DETECTED_APP,
             stage: DETECTED_STAGE
         });
@@ -174,23 +211,21 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
             stageName = v2State.stage;
         }
 
+        const exists = isS3Path(STATE_FILE) ? true : fs.existsSync(STATE_FILE);
         res.json({
             stateFile: STATE_FILE,
             projectRoot: PROJECT_ROOT,
-            exists: fs.existsSync(STATE_FILE),
+            exists,
             app: appName,
             stage: stageName
         });
     });
 
     // 2. GET /api/state
-    app.get("/api/state", (_req, res) => {
-        if (!fs.existsSync(STATE_FILE)) {
-            return res.status(404).json({ error: "State file not found. Please set the path in Settings." });
-        }
+    app.get("/api/state", async (_req, res) => {
         try {
-            const data = fs.readFileSync(STATE_FILE, "utf-8");
-            res.json(JSON.parse(data));
+            const data = await readStateFile(STATE_FILE);
+            res.json(data);
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -207,13 +242,15 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
         try {
             // Load State IDs for comparison
             let managedIds = new Set<string>();
-            if (fs.existsSync(STATE_FILE)) {
-                const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
+            try {
+                const state = await readStateFile(STATE_FILE);
                 const resources = state.latest?.resources || state.checkpoint?.latest?.resources || state.deployment?.resources || [];
                 resources.forEach((r: any) => {
                     if (r.id) managedIds.add(r.id);
                     if (r.outputs?.arn) managedIds.add(r.outputs.arn);
                 });
+            } catch (e) {
+                console.log("[Backend] Warning: Could not read state file for scan comparison:", e);
             }
 
             const client = new ResourceGroupsTaggingAPIClient({ region });

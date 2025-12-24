@@ -26,6 +26,7 @@ This will:
 If Ghost Viewer cannot auto-detect your state file, or if you want to view a specific state file from another directory:
 - Click the **Settings (gear icon)** in the top right of the dashboard.
 - Enter the absolute or relative path to your `state.json` or `.json` Pulumi stack file.
+- **S3 Support**: You can also provide an S3 URI (e.g., `s3://my-bucket/path/to/state.json`). If the bucket is in a different region than your default, append it like so: `s3://bucket/key:us-west-2`.
 - Click the checkmark to save and reload.
 
 ---
@@ -35,7 +36,9 @@ If Ghost Viewer cannot auto-detect your state file, or if you want to view a spe
 Ghost Viewer uses your local AWS configuration to scan for resources. 
 
 - **AWS Credentials**: Ensure your terminal session has active AWS credentials (e.g., run `aws sso login` or export your keys).
-- **Permissions**: The user/role must have `tag:GetResources` permissions to perform the Ghost Hunt.
+- **Permissions**: 
+    - The user/role must have `tag:GetResources` permissions to perform the Ghost Hunt.
+    - If using an S3-hosted state file, `s3:GetObject` permission is required for that bucket/key.
 
 ---
 

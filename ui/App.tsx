@@ -879,7 +879,7 @@ export default function App() {
                     value={statePath}
                     onChange={(e) => setStatePath(e.target.value)}
                     className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 w-64"
-                    placeholder="/path/to/state.json"
+                    placeholder="/path/to/state.json or s3://bucket/key:region"
                   />
                   <button
                     onClick={handleUpdateConfig}
