@@ -1,8 +1,11 @@
 {
-  "name": "ghost-viewer",
+  "name": "@mustachio/ghost-viewer",
   "version": "1.0.1",
   "description": "Visualizer and Orphan Hunter for SST State",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "ghost-viewer": "./dist/cli.js"
   },
