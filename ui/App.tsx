@@ -734,6 +734,19 @@ function ResourceNode({
   );
 }
 
+const COMMON_REGIONS = [
+  "us-west-2",
+  "us-east-1",
+  "us-east-2",
+  "us-west-1",
+  "eu-west-1",
+  "eu-central-1",
+  "ap-southeast-1",
+  "ap-southeast-2",
+  "ap-northeast-1",
+  "ca-central-1",
+];
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<"explorer" | "hunter">("explorer");
   const [resources, setResources] = useState<Resource[]>([]);
@@ -746,6 +759,7 @@ export default function App() {
 
   // Config State
   const [statePath, setStatePath] = useState<string>("");
+  const [s3Region, setS3Region] = useState("us-west-2");
   const [showConfig, setShowConfig] = useState(false);
 
   // Hunter Persistant State
@@ -829,7 +843,18 @@ export default function App() {
     fetch("/api/config")
       .then((res) => res.json())
       .then((data) => {
-        setStatePath(data.stateFile);
+        if (data.stateFile && data.stateFile.startsWith("s3://")) {
+          const parts = data.stateFile.split(":");
+          if (parts.length > 2) {
+            // s3://bucket/key:region
+            setStatePath(parts.slice(0, 2).join(":"));
+            setS3Region(parts[2]);
+          } else {
+            setStatePath(data.stateFile);
+          }
+        } else {
+          setStatePath(data.stateFile);
+        }
         // 2. Load State
         fetchState(
           data.app && data.stage
@@ -840,10 +865,15 @@ export default function App() {
   }, []);
 
   const handleUpdateConfig = () => {
+    const finalPath =
+      statePath.startsWith("s3://") && s3Region
+        ? `${statePath}:${s3Region}`
+        : statePath;
+
     fetch("/api/config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stateFile: statePath }),
+      body: JSON.stringify({ stateFile: finalPath }),
     })
       .then((res) => res.json())
       .then((data) => {
@@ -879,8 +909,21 @@ export default function App() {
                     value={statePath}
                     onChange={(e) => setStatePath(e.target.value)}
                     className="px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500 w-64"
-                    placeholder="/path/to/state.json or s3://bucket/key:region"
+                    placeholder="/path/to/state.json or s3://bucket/key"
                   />
+                  {statePath.startsWith("s3://") && (
+                    <select
+                      value={s3Region}
+                      onChange={(e) => setS3Region(e.target.value)}
+                      className="px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {COMMON_REGIONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <button
                     onClick={handleUpdateConfig}
                     className="p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700"
