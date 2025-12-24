@@ -1,6 +1,6 @@
 {
   "name": "ghost-viewer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Visualizer and Orphan Hunter for SST State",
   "type": "module",
   "bin": {
