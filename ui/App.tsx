@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Fuse from "fuse.js";
 import {
   Search,
@@ -49,17 +49,10 @@ interface TypeGroup {
   isVisible: boolean;
 }
 
-interface Orphan {
-  arn: string;
-  type: string;
-  name: string;
-  tags: Record<string, string>;
-}
-
 interface ScanResult {
   totalFound: number;
   managedCount: number;
-  orphans: Orphan[];
+  orphans: any[];
 }
 
 interface StateMetadata {
@@ -86,6 +79,14 @@ const PROMOTED_TYPES = [
   "States",
   "StaticSite",
   "CDN",
+];
+
+const REFRESH_INTERVALS = [
+  { label: "Manual", value: 0 },
+  { label: "10 seconds", value: 10000 },
+  { label: "30 seconds", value: 30000 },
+  { label: "1 minute", value: 60000 },
+  { label: "5 minutes", value: 300000 },
 ];
 
 // --- HELPERS ---
@@ -440,6 +441,189 @@ function TypeDropdown({
   );
 }
 
+function AutoRefreshButton({
+  interval,
+  onIntervalChange,
+  onRefresh,
+  loading,
+}: {
+  interval: number;
+  onIntervalChange: (v: number) => void;
+  onRefresh: () => void;
+  loading: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [cycleKey, setCycleKey] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const currentLabel =
+    REFRESH_INTERVALS.find((i) => i.value === interval)?.label || "Manual";
+
+  // Progress animation
+  useEffect(() => {
+    if (interval === 0 || loading) {
+      setProgress(0);
+      return;
+    }
+
+    // Start filling the bar
+    setProgress(0);
+    const timeoutId = setTimeout(() => setProgress(100), 50);
+    
+    // Set a timer to trigger the next visual cycle if the parent interval is slow
+    const cycleId = setTimeout(() => {
+        setCycleKey(k => k + 1);
+    }, interval);
+
+    return () => {
+        clearTimeout(timeoutId);
+        clearTimeout(cycleId);
+    };
+  }, [interval, loading, cycleKey]);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setIsOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div className="relative flex items-center" ref={ref}>
+      <div
+        className={`flex items-stretch border rounded-lg overflow-hidden shadow-sm h-9 transition-all relative ${
+          interval > 0
+            ? "border-indigo-200 bg-indigo-50/30"
+            : "border-gray-200 bg-white"
+        }`}
+      >
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className={`px-3 py-2 border-r transition-colors flex items-center justify-center disabled:opacity-50 z-10 ${
+            interval > 0
+              ? "text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+              : "text-gray-500 border-gray-100 hover:bg-gray-50"
+          }`}
+          title="Refresh Now"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+        </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`pl-2 pr-3 flex items-center gap-2 text-[10px] font-black uppercase tracking-wider transition-colors z-10 ${
+            interval > 0
+              ? "text-indigo-700 hover:bg-indigo-50"
+              : "text-gray-500 hover:bg-gray-50"
+          }`}
+        >
+          <span className="whitespace-nowrap min-w-[75px] text-center">
+            {currentLabel}
+          </span>
+          <ChevronDown
+            className={`w-3 h-3 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {/* Progress Bar Container */}
+        {interval > 0 && (
+          <div className="absolute bottom-0 left-0 h-[3px] bg-indigo-500/20 w-full z-0" />
+        )}
+        {/* Animated Progress Bar */}
+        {interval > 0 && (
+          <div
+            className={`absolute bottom-0 left-0 h-[3px] bg-indigo-600 z-0 ${
+              progress === 100 ? "transition-all ease-linear" : "transition-none"
+            }`}
+            style={{ 
+              width: `${progress}%`,
+              transitionDuration: progress === 100 ? `${interval}ms` : '0ms'
+            }}
+          />
+        )}
+      </div>
+
+      {isOpen && (
+        <div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-2xl z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="p-2 text-[10px] font-black uppercase text-gray-400 border-b border-gray-100 tracking-wider">
+            Auto Refresh
+          </div>
+          <div className="py-1">
+            {REFRESH_INTERVALS.map((i) => (
+              <button
+                key={i.value}
+                onClick={() => {
+                  onIntervalChange(i.value);
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-xs hover:bg-indigo-50 transition-colors flex items-center justify-between ${
+                  interval === i.value
+                    ? "text-indigo-600 font-bold bg-indigo-50/50"
+                    : "text-gray-600"
+                }`}
+              >
+                {i.label}
+                {interval === i.value && (
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StackInfoBanner({
+  metadata,
+  totalResources,
+  lastRefreshed,
+}: {
+  metadata: StateMetadata;
+  totalResources: number;
+  lastRefreshed: Date | null;
+}) {
+  return (
+    <div className="bg-indigo-900 text-indigo-100 p-4 rounded-xl shadow-lg border border-indigo-800 flex flex-wrap gap-x-8 gap-y-2 items-center text-xs">
+      <div className="flex items-center gap-2">
+        <Info className="w-4 h-4 text-indigo-400" />{" "}
+        <span className="font-bold uppercase tracking-wider text-indigo-300">
+          Stack Info
+        </span>
+      </div>
+      {Object.entries(metadata).map(([k, v]) => (
+        <div key={k} className="flex flex-col">
+          <span className="text-[10px] text-indigo-400 uppercase font-black">
+            {k}
+          </span>
+          <span className="font-mono font-bold text-white">{v}</span>
+        </div>
+      ))}
+      <div className="flex flex-col">
+        <span className="text-[10px] text-indigo-400 uppercase font-black">
+          Resources
+        </span>
+        <span className="font-mono font-bold text-white">{totalResources}</span>
+      </div>
+      {lastRefreshed && (
+        <div className="flex flex-col">
+          <span className="text-[10px] text-indigo-400 uppercase font-black">
+            Last Refreshed
+          </span>
+          <span className="font-mono font-bold text-white">
+            {lastRefreshed.toLocaleTimeString()}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailsPanel({
   resource,
   onClose,
@@ -753,14 +937,34 @@ export default function App() {
   const [selectedResource, setSelectedResource] = useState<Resource | null>(
     null
   );
+
+  // Sync selected resource when resources list updates
+  useEffect(() => {
+    if (selectedResource) {
+      const updated = resources.find((r) => r.urn === selectedResource.urn);
+      if (updated) {
+        // Only update if it's a different object but same URN
+        if (updated !== selectedResource) {
+          setSelectedResource(updated);
+        }
+      } else {
+        // If it's gone from the list, close the panel
+        setSelectedResource(null);
+      }
+    }
+  }, [resources]);
+
   const [metadata, setMetadata] = useState<StateMetadata | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Config State
   const [statePath, setStatePath] = useState<string>("");
   const [s3Region, setS3Region] = useState("us-west-2");
   const [showConfig, setShowConfig] = useState(false);
+  const [refreshInterval, setRefreshInterval] = useState(0);
 
   // Hunter Persistant State
   const [hunterResult, setHunterResult] = useState<ScanResult | null>(null);
@@ -772,71 +976,85 @@ export default function App() {
     region: "us-east-1",
   });
 
-  const fetchState = (detected?: { app: string; stage: string }) => {
-    setLoading(true);
-    fetch("/api/state")
-      .then((res) => res.json())
-      .then((data) => {
-        const list =
-          data.latest?.resources ||
-          data.checkpoint?.latest?.resources ||
-          data.deployment?.resources ||
-          [];
-        setResources(list);
+  const fetchState = useCallback(
+    (detected?: { app: string; stage: string }, background: boolean = false) => {
+      if (!background) setLoading(true);
+      setRefreshing(true);
+      fetch("/api/state")
+        .then((res) => res.json())
+        .then((data) => {
+          const list =
+            data.latest?.resources ||
+            data.checkpoint?.latest?.resources ||
+            data.deployment?.resources ||
+            [];
+          setResources(list);
 
-        // improved metadata extraction
-        let stackName = data.stack || data.deployment?.stack || "";
-        let app = detected?.app || "Unknown";
-        let stage = detected?.stage || "Unknown";
+          // improved metadata extraction
+          let stackName = data.stack || data.deployment?.stack || "";
+          let app = detected?.app || "Unknown";
+          let stage = detected?.stage || "Unknown";
 
-        if (app === "Unknown" || stage === "Unknown") {
-          if (stackName) {
-            const parts = stackName.split("/");
-            if (parts.length >= 3) {
-              app = app === "Unknown" ? parts[1] : app;
-              stage = stage === "Unknown" ? parts[2] : stage;
-            } else {
-              app = app === "Unknown" ? stackName : app;
-            }
-          } else if (list.length > 0) {
-            const refResource =
-              list.find((r: any) => r.type !== "pulumi:pulumi:Stack") ||
-              list[0];
-            if (refResource?.urn) {
-              const parts = refResource.urn.split("::");
+          if (app === "Unknown" || stage === "Unknown") {
+            if (stackName) {
+              const parts = stackName.split("/");
               if (parts.length >= 3) {
-                const urnHeader = parts[0].split(":");
-                if (urnHeader.length >= 3) {
-                  stage = stage === "Unknown" ? urnHeader[2] : stage;
-                }
                 app = app === "Unknown" ? parts[1] : app;
+                stage = stage === "Unknown" ? parts[2] : stage;
+              } else {
+                app = app === "Unknown" ? stackName : app;
+              }
+            } else if (list.length > 0) {
+              const refResource =
+                list.find((r: any) => r.type !== "pulumi:pulumi:Stack") ||
+                list[0];
+              if (refResource?.urn) {
+                const parts = refResource.urn.split("::");
+                if (parts.length >= 3) {
+                  const urnHeader = parts[0].split(":");
+                  if (urnHeader.length >= 3) {
+                    stage = stage === "Unknown" ? urnHeader[2] : stage;
+                  }
+                  app = app === "Unknown" ? parts[1] : app;
+                }
               }
             }
           }
-        }
 
-        const provider = list.find(
-          (r: any) => r.type === "pulumi:providers:aws"
-        );
-        const arnSample =
-          list.find((r: any) => r.outputs?.arn)?.outputs?.arn || "";
+          const provider = list.find(
+            (r: any) => r.type === "pulumi:providers:aws"
+          );
+          const arnSample =
+            list.find((r: any) => r.outputs?.arn)?.outputs?.arn || "";
 
-        setMetadata({
-          app,
-          stage,
-          region: provider?.inputs?.region || "us-west-2",
-          account: arnSample.split(":")[4] || "Unknown",
+          setMetadata({
+            app,
+            stage,
+            region: provider?.inputs?.region || "us-west-2",
+            account: arnSample.split(":")[4] || "Unknown",
+          });
+
+          setLastRefreshed(new Date());
+          if (!background) setLoading(false);
+          setRefreshing(false);
+          setError(null);
+        })
+        .catch((e) => {
+          console.error(e);
+          setError("Failed to load state.json. Check console for details.");
+          if (!background) setLoading(false);
+          setRefreshing(false);
         });
+    },
+    []
+  );
 
-        setLoading(false);
-        setError(null);
-      })
-      .catch((e) => {
-        console.error(e);
-        setError("Failed to load state.json. Check console for details.");
-        setLoading(false);
-      });
-  };
+  useEffect(() => {
+    if (refreshInterval > 0) {
+      const id = setInterval(() => fetchState(undefined, true), refreshInterval);
+      return () => clearInterval(id);
+    }
+  }, [refreshInterval, fetchState]);
 
   useEffect(() => {
     // 1. Get Initial Config
@@ -890,7 +1108,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex overflow-hidden">
       <div className="flex-1 flex flex-col overflow-hidden h-screen relative">
-        <header className="bg-white border-b border-gray-200 sticky top-0 z-10 flex-shrink-0">
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-40 flex-shrink-0">
           <div className="w-[80%] mx-auto px-4 sm:px-6 lg:px-8 flex justify-between h-16">
             <div className="flex items-center gap-3">
               <div className="bg-indigo-600 p-2 rounded-lg">
@@ -902,6 +1120,12 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
+              <AutoRefreshButton
+                interval={refreshInterval}
+                onIntervalChange={setRefreshInterval}
+                onRefresh={() => fetchState(undefined, true)}
+                loading={refreshing}
+              />
               {showConfig ? (
                 <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg animate-in fade-in slide-in-from-top-2">
                   <input
@@ -994,6 +1218,7 @@ export default function App() {
               onSelect={setSelectedResource}
               metadata={metadata}
               selectedResource={selectedResource}
+              lastRefreshed={lastRefreshed}
             />
           ) : (
             <GhostHunter
@@ -1008,6 +1233,8 @@ export default function App() {
               setError={setHunterError}
               config={hunterConfig}
               setConfig={setHunterConfig}
+              totalResources={resources.length}
+              lastRefreshed={lastRefreshed}
             />
           )}
         </main>
@@ -1031,11 +1258,13 @@ function StateExplorer({
   onSelect,
   metadata,
   selectedResource,
+  lastRefreshed,
 }: {
   resources: Resource[];
   onSelect: (r: Resource) => void;
   metadata: StateMetadata | null;
   selectedResource: Resource | null;
+  lastRefreshed: Date | null;
 }) {
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
@@ -1127,132 +1356,122 @@ function StateExplorer({
   );
   return (
     <div className="space-y-6 pb-20">
-      {metadata && (
-        <div className="bg-indigo-900 text-indigo-100 p-4 rounded-xl shadow-lg border border-indigo-800 flex flex-wrap gap-x-8 gap-y-2 items-center text-xs">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-indigo-400" />{" "}
-            <span className="font-bold uppercase tracking-wider text-indigo-300">
-              Stack Info
-            </span>
-          </div>
-          {Object.entries(metadata).map(([k, v]) => (
-            <div key={k} className="flex flex-col">
-              {" "}
-              <span className="text-[10px] text-indigo-400 uppercase font-black">
-                {k}
-              </span>{" "}
-              <span className="font-mono font-bold text-white">{v}</span>{" "}
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-4 flex-1 w-full min-w-0">
-          <div className="relative flex-1 max-sm:max-w-none max-w-sm min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <TypeDropdown
-            allTypes={availableTypes}
-            selected={selectedTypes}
-            onChange={setSelectedTypes}
+      <div className="sticky top-0 z-10 space-y-4 pt-4 bg-gray-50/80 backdrop-blur-sm -mt-4 pb-4">
+        {metadata && (
+          <StackInfoBanner
+            metadata={metadata}
+            totalResources={resources.length}
+            lastRefreshed={lastRefreshed}
           />
-          {(query || activeFilters.length > 0 || selectedTypes.length > 0) && (
-            <button
-              onClick={() => {
-                setQuery("");
-                setActiveFilters([]);
-                setSelectedTypes([]);
-              }}
-              className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
-              title="Clear Filters"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
-          <div className="flex bg-gray-100 p-1 rounded-lg gap-1">
-            <button
-              onClick={() => setExpansionKey((p) => (p >= 0 ? p + 1 : 1))}
-              className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
-              title="Expand All"
-            >
-              <Maximize2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setExpansionKey((p) => (p <= 0 ? p - 1 : -1))}
-              className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
-              title="Collapse All"
-            >
-              <Minimize2 className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-md ${
-                viewMode === "list"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-gray-500"
-              }`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("tree")}
-              className={`p-1.5 rounded-md ${
-                viewMode === "tree"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-gray-500"
-              }`}
-              title="Tree View"
-            >
-              <Network className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("categorized")}
-              className={`p-1.5 rounded-md ${
-                viewMode === "categorized"
-                  ? "bg-white text-indigo-600 shadow-sm"
-                  : "text-gray-500"
-              }`}
-              title="Categories"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex bg-gray-100 p-1 rounded-lg gap-1 text-[10px] font-bold uppercase">
-            {["all", "aws", "sst:aws", "sst"].map((f) => (
+        )}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center">
+          <div className="flex items-center gap-4 flex-1 w-full min-w-0">
+            <div className="relative flex-1 max-sm:max-w-none max-w-sm min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search resources..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <TypeDropdown
+              allTypes={availableTypes}
+              selected={selectedTypes}
+              onChange={setSelectedTypes}
+            />
+            {(query || activeFilters.length > 0 || selectedTypes.length > 0) && (
               <button
-                key={f}
-                onClick={() =>
-                  f === "all"
-                    ? setActiveFilters([])
-                    : setActiveFilters((p) =>
-                        p.includes(f) ? p.filter((x) => x !== f) : [...p, f]
-                      )
-                }
-                className={`px-3 py-1.5 rounded-md ${
-                  (
-                    f === "all"
-                      ? activeFilters.length === 0
-                      : activeFilters.includes(f)
-                  )
+                onClick={() => {
+                  setQuery("");
+                  setActiveFilters([]);
+                  setSelectedTypes([]);
+                }}
+                className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                title="Clear Filters"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
+            <div className="flex bg-gray-100 p-1 rounded-lg gap-1">
+              <button
+                onClick={() => setExpansionKey((p) => (p >= 0 ? p + 1 : 1))}
+                className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
+                title="Expand All"
+              >
+                <Maximize2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setExpansionKey((p) => (p <= 0 ? p - 1 : -1))}
+                className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
+                title="Collapse All"
+              >
+                <Minimize2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "list"
                     ? "bg-white text-indigo-600 shadow-sm"
                     : "text-gray-500"
                 }`}
+                title="List View"
               >
-                {f === "sst:aws" ? "SST AWS" : f === "sst" ? "SST" : f}
+                <List className="w-4 h-4" />
               </button>
-            ))}
+              <button
+                onClick={() => setViewMode("tree")}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "tree"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-500"
+                }`}
+                title="Tree View"
+              >
+                <Network className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode("categorized")}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "categorized"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-500"
+                }`}
+                title="Categories"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex bg-gray-100 p-1 rounded-lg gap-1 text-[10px] font-bold uppercase">
+              {["all", "aws", "sst:aws", "sst"].map((f) => (
+                <button
+                  key={f}
+                  onClick={() =>
+                    f === "all"
+                      ? setActiveFilters([])
+                      : setActiveFilters((p) =>
+                          p.includes(f) ? p.filter((x) => x !== f) : [...p, f]
+                        )
+                  }
+                  className={`px-3 py-1.5 rounded-md ${
+                    (
+                      f === "all"
+                        ? activeFilters.length === 0
+                        : activeFilters.includes(f)
+                    )
+                      ? "bg-white text-indigo-600 shadow-sm"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {f === "sst:aws" ? "SST AWS" : f === "sst" ? "SST" : f}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -1459,6 +1678,8 @@ function GhostHunter({
   setError,
   config,
   setConfig,
+  totalResources,
+  lastRefreshed,
 }: {
   metadata: StateMetadata | null;
   onSelect: (r: Resource) => void;
@@ -1471,6 +1692,8 @@ function GhostHunter({
   setError: (e: string | null) => void;
   config: { appName: string; stage: string; region: string };
   setConfig: (c: { appName: string; stage: string; region: string }) => void;
+  totalResources: number;
+  lastRefreshed: Date | null;
 }) {
   // View & Filter State
   const [query, setQuery] = useState("");
@@ -1558,7 +1781,93 @@ function GhostHunter({
   }, [filteredOrphans]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
+      <div className="sticky top-0 z-10 space-y-4 bg-gray-50/80 backdrop-blur-sm -mt-4 pt-4 pb-4">
+        {metadata && (
+          <StackInfoBanner
+            metadata={metadata}
+            totalResources={totalResources}
+            lastRefreshed={lastRefreshed}
+          />
+        )}
+
+        {result && result.orphans && (
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center">
+            <div className="flex items-center gap-4 flex-1 w-full min-w-0">
+              <div className="relative flex-1 max-w-sm min-w-0">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search orphans..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+              <TypeDropdown
+                allTypes={availableTypes}
+                selected={selectedTypes}
+                onChange={setSelectedTypes}
+              />
+              {(query || selectedTypes.length > 0) && (
+                <button
+                  onClick={() => {
+                    setQuery("");
+                    setSelectedTypes([]);
+                  }}
+                  className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                  title="Clear Filters"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
+              <div className="flex bg-gray-100 p-1 rounded-lg gap-1">
+                <button
+                  onClick={() => setExpansionKey((p) => (p >= 0 ? p + 1 : 1))}
+                  className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
+                  title="Expand All"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setExpansionKey((p) => (p <= 0 ? p - 1 : -1))}
+                  className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
+                  title="Collapse All"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 rounded-md ${
+                    viewMode === "list"
+                      ? "bg-white text-red-600 shadow-sm"
+                      : "text-gray-500"
+                  }`}
+                  title="List View"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("categorized")}
+                  className={`p-1.5 rounded-md ${
+                    viewMode === "categorized"
+                      ? "bg-white text-red-600 shadow-sm"
+                      : "text-gray-500"
+                  }`}
+                  title="Categorized View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
         <h2 className="text-lg font-bold mb-4 text-red-600 flex items-center gap-2">
           <ShieldAlert className="w-5 h-5" />
@@ -1620,80 +1929,6 @@ function GhostHunter({
                 </div>
               </div>
             ))}
-          </div>
-
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col xl:flex-row gap-4 justify-between items-center sticky top-0 z-10">
-            <div className="flex items-center gap-4 flex-1 w-full min-w-0">
-              <div className="relative flex-1 max-w-sm min-w-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search orphans..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-red-500"
-                />
-              </div>
-                             <TypeDropdown
-                               allTypes={availableTypes}
-                               selected={selectedTypes}
-                               onChange={setSelectedTypes}
-                             />
-              {(query || selectedTypes.length > 0) && (
-                <button
-                  onClick={() => {
-                    setQuery("");
-                    setSelectedTypes([]);
-                  }}
-                  className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                  title="Clear Filters"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
-              <div className="flex bg-gray-100 p-1 rounded-lg gap-1">
-                <button
-                  onClick={() => setExpansionKey((p) => (p >= 0 ? p + 1 : 1))}
-                  className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
-                  title="Expand All"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setExpansionKey((p) => (p <= 0 ? p - 1 : -1))}
-                  className="p-1.5 hover:bg-white rounded transition-all text-gray-500"
-                  title="Collapse All"
-                >
-                  <Minimize2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-md ${
-                    viewMode === "list"
-                      ? "bg-white text-red-600 shadow-sm"
-                      : "text-gray-500"
-                  }`}
-                  title="List View"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode("categorized")}
-                  className={`p-1.5 rounded-md ${
-                    viewMode === "categorized"
-                      ? "bg-white text-red-600 shadow-sm"
-                      : "text-gray-500"
-                  }`}
-                  title="Categorized View"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
           </div>
 
           {result.orphans.length > 0 ? (

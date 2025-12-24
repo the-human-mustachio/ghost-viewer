@@ -26,7 +26,8 @@ This will:
 If Ghost Viewer cannot auto-detect your state file, or if you want to view a specific state file from another directory:
 - Click the **Settings (gear icon)** in the top right of the dashboard.
 - Enter the absolute or relative path to your `state.json` or `.json` Pulumi stack file.
-- **S3 Support**: You can also provide an S3 URI (e.g., `s3://my-bucket/path/to/state.json`). If the bucket is in a different region than your default, append it like so: `s3://bucket/key:us-west-2`.
+- **S3 Support**: You can also provide an S3 URI (e.g., `s3://my-bucket/path/to/state.json`).
+- **Region Selection**: When an S3 path is detected, a dropdown will appear to select the bucket's region (defaults to `us-west-2`).
 - Click the checkmark to save and reload.
 
 ---
