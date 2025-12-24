@@ -11,7 +11,7 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function findSstV2State(root: string): string | null {
+function findSstV2State(root: string): { path: string; app: string; stage: string } | null {
   console.log(`[findSstV2State] Searching in: ${root}`);
   try {
     const stagePath = path.join(root, ".sst", "stage");
@@ -102,7 +102,8 @@ function findSstV2State(root: string): string | null {
       return null;
     };
 
-    return search(pulumiRoot);
+    const foundPath = search(pulumiRoot);
+    return foundPath ? { path: foundPath, app, stage } : null;
   } catch (e) {
     console.error("[Backend] Error auto-detecting SST v2 state:", e);
     return null;
@@ -119,6 +120,8 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
     // --- CONFIG ---
     const PROJECT_ROOT = process.cwd();
     let STATE_FILE = process.env.STATE_PATH || "";
+    let DETECTED_APP = "";
+    let DETECTED_STAGE = "";
 
     // Try to auto-locate state.json if not provided
     if (!STATE_FILE) {
@@ -131,7 +134,9 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
         if (fs.existsSync(v3State)) {
             STATE_FILE = v3State;
         } else if (v2State) {
-            STATE_FILE = v2State;
+            STATE_FILE = v2State.path;
+            DETECTED_APP = v2State.app;
+            DETECTED_STAGE = v2State.stage;
         } else if (fs.existsSync(path.join(PROJECT_ROOT, "state.json"))) {
             STATE_FILE = path.join(PROJECT_ROOT, "state.json");
         }
@@ -147,7 +152,9 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
         res.json({
             stateFile: STATE_FILE,
             projectRoot: PROJECT_ROOT,
-            exists: fs.existsSync(STATE_FILE)
+            exists: fs.existsSync(STATE_FILE),
+            app: DETECTED_APP,
+            stage: DETECTED_STAGE
         });
     });
 
@@ -157,10 +164,22 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
         if (stateFile && typeof stateFile === 'string') {
             STATE_FILE = stateFile;
         }
+        
+        // Try to re-detect if it's an SST project
+        const v2State = findSstV2State(PROJECT_ROOT);
+        let appName = "";
+        let stageName = "";
+        if (v2State && v2State.path === STATE_FILE) {
+            appName = v2State.app;
+            stageName = v2State.stage;
+        }
+
         res.json({
             stateFile: STATE_FILE,
             projectRoot: PROJECT_ROOT,
-            exists: fs.existsSync(STATE_FILE)
+            exists: fs.existsSync(STATE_FILE),
+            app: appName,
+            stage: stageName
         });
     });
 
