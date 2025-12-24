@@ -46,7 +46,7 @@ This project is configured to be published to npm and used via `npx`:
 
 Once published, users can simply run:
 ```bash
-npx ghost-viewer
+npx @_mustachio/ghost-viewer
 ```
 
 ## Development Notes

@@ -478,6 +478,7 @@ function StateExplorer({ resources, onSelect, metadata }: { resources: Resource[
 function GhostHunter({ metadata }: { metadata: StateMetadata | null }) {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState({ appName: 'pulsecx-v3', stage: 'production', region: 'us-west-2' });
 
   useEffect(() => {
@@ -491,8 +492,49 @@ function GhostHunter({ metadata }: { metadata: StateMetadata | null }) {
       }
   }, [metadata]);
 
-  const scan = async () => { setScanning(true); setResult(null); try { const res = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) }); setResult(await res.json()); } catch { alert('Scan failed.'); } finally { setScanning(false); } };
+  const scan = async () => { 
+    setScanning(true); 
+    setResult(null); 
+    setError(null);
+    try { 
+      const res = await fetch('/api/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) }); 
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Scan failed.');
+      } else {
+        setResult(data); 
+      }
+    } catch (err: any) { 
+      setError(err.message || 'Scan failed.'); 
+    } finally { 
+      setScanning(false); 
+    } 
+  };
   return (
-    <div className="space-y-6"><div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200"><h2 className="text-lg font-bold mb-4 text-red-600 flex items-center gap-2"><ShieldAlert className="w-5 h-5" />Hunt Configuration</h2><div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">{['appName', 'stage', 'region'].map(k => (<div key={k}><label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-wider">{k.replace(/([A-Z])/g, ' $1')}</label><input type="text" value={(config as any)[k]} onChange={e => setConfig({ ...config, [k]: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none bg-gray-50/50" /></div>))}<button onClick={scan} disabled={scanning} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md">{scanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />} {scanning ? 'Hunting...' : 'Start Hunt'}</button></div></div>{result && (<div className="space-y-6"><div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">{[{ l: 'Tracked', v: result.managedCount, c: 'gray' }, { l: 'In AWS', v: result.totalFound, c: 'indigo' }, { l: 'Orphans', v: result.orphans.length, c: 'red' }].map(s => (<div key={s.l} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"><div className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">{s.l}</div><div className={`text-4xl font-black mt-2 text-${s.c}-600`}>{s.v}</div></div>))}</div>{result.orphans.length > 0 ? (<div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-lg border-red-100"><div className="px-6 py-4 bg-red-50 border-b border-red-100 text-red-900 font-bold flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-600" />Orphaned Resources</div><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-gray-500 border-b border-gray-100"><tr><th className="px-6 py-3">Type</th><th className="px-6 py-3">Physical Name</th><th className="px-6 py-3">Tags</th></tr></thead><tbody className="divide-y divide-gray-100">{result.orphans.map((o, i) => (<tr key={i} className="hover:bg-red-50 transition-colors"><td className="px-6 py-4 font-mono text-xs text-gray-500">{o.type}</td><td className="px-6 py-4 font-bold text-gray-900">{o.name}</td><td className="px-6 py-4"><div className="flex gap-2"><span className="px-1.5 py-0.5 bg-gray-100 text-[9px] rounded font-bold text-gray-600">App: {o.tags['sst:app']}</span><span className="px-1.5 py-0.5 bg-gray-100 text-[9px] rounded font-bold text-gray-600">Stage: {o.tags['sst:stage']}</span></div></td></tr>))}</tbody></table></div>) : <div className="bg-green-50 p-12 text-center rounded-xl font-bold text-xl text-green-800 border border-green-200">✅ No orphaned resources found!</div>}</div>)}</div>
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <h2 className="text-lg font-bold mb-4 text-red-600 flex items-center gap-2"><ShieldAlert className="w-5 h-5" />Hunt Configuration</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          {['appName', 'stage', 'region'].map(k => (
+            <div key={k}>
+              <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-wider">{k.replace(/([A-Z])/g, ' $1')}</label>
+              <input type="text" value={(config as any)[k]} onChange={e => setConfig({ ...config, [k]: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none bg-gray-50/50" />
+            </div>
+          ))}
+          <button onClick={scan} disabled={scanning} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-md">
+            {scanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4" />} 
+            {scanning ? 'Hunting...' : 'Start Hunt'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 p-4 rounded-xl text-red-700 font-medium flex items-center gap-3">
+          <ShieldAlert className="w-5 h-5" />
+          {error}
+        </div>
+      )}
+
+      {result && result.orphans && (<div className="space-y-6"><div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">{[{ l: 'Tracked', v: result.managedCount, c: 'gray' }, { l: 'In AWS', v: result.totalFound, c: 'indigo' }, { l: 'Orphans', v: result.orphans.length, c: 'red' }].map(s => (<div key={s.l} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"><div className="text-[10px] font-bold uppercase text-gray-400 tracking-widest">{s.l}</div><div className={`text-4xl font-black mt-2 text-${s.c}-600`}>{s.v}</div></div>))}</div>{result.orphans.length > 0 ? (<div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-lg border-red-100"><div className="px-6 py-4 bg-red-50 border-b border-red-100 text-red-900 font-bold flex items-center gap-2"><ShieldAlert className="w-5 h-5 text-red-600" />Orphaned Resources</div><table className="w-full text-left text-sm"><thead className="bg-gray-50 text-gray-500 border-b border-gray-100"><tr><th className="px-6 py-3">Type</th><th className="px-6 py-3">Physical Name</th><th className="px-6 py-3">Tags</th></tr></thead><tbody className="divide-y divide-gray-100">{result.orphans.map((o, i) => (<tr key={i} className="hover:bg-red-50 transition-colors"><td className="px-6 py-4 font-mono text-xs text-gray-500">{o.type}</td><td className="px-6 py-4 font-bold text-gray-900">{o.name}</td><td className="px-6 py-4"><div className="flex gap-2"><span className="px-1.5 py-0.5 bg-gray-100 text-[9px] rounded font-bold text-gray-600">App: {o.tags['sst:app']}</span><span className="px-1.5 py-0.5 bg-gray-100 text-[9px] rounded font-bold text-gray-600">Stage: {o.tags['sst:stage']}</span></div></td></tr>))}</tbody></table></div>) : <div className="bg-green-50 p-12 text-center rounded-xl font-bold text-xl text-green-800 border border-green-200">✅ No orphaned resources found!</div>}</div>)}</div>
   );
 }

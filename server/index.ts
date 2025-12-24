@@ -131,7 +131,11 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
 
         } catch (e: any) {
             console.error(e);
-            res.status(500).json({ error: e.message });
+            let message = e.message;
+            if (e.name === 'ExpiredTokenException' || e.__type === 'ExpiredTokenException' || message.includes('expired')) {
+                message = "AWS Credentials expired or invalid. Please check your environment or run 'aws sso login'.";
+            }
+            res.status(500).json({ error: message });
         }
     });
 
@@ -166,4 +170,9 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
     };
 
     return startListening(PORT);
+}
+
+// Auto-start if run directly (e.g. via tsx)
+if (process.argv[1] && process.argv[1].endsWith('server/index.ts')) {
+    startServer({ isDev: true });
 }
