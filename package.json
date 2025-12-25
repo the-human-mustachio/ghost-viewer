@@ -1,6 +1,6 @@
 {
   "name": "@_mustachio/ghost-viewer",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Visualizer and Orphan Hunter for SST State",
   "type": "module",
   "publishConfig": {
