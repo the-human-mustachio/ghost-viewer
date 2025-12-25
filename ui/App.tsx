@@ -446,11 +446,13 @@ function AutoRefreshButton({
   onIntervalChange,
   onRefresh,
   loading,
+  isRefreshing,
 }: {
   interval: number;
   onIntervalChange: (v: number) => void;
   onRefresh: () => void;
   loading: boolean;
+  isRefreshing: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -509,7 +511,7 @@ function AutoRefreshButton({
           }`}
           title="Refresh Now"
         >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw className={`w-4 h-4 ${(loading || isRefreshing) ? "animate-spin" : ""}`} />
         </button>
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -536,6 +538,7 @@ function AutoRefreshButton({
         {/* Animated Progress Bar */}
         {interval > 0 && (
           <div
+            key={cycleKey}
             className={`absolute bottom-0 left-0 h-[3px] bg-indigo-600 z-0 ${
               progress === 100 ? "transition-all ease-linear" : "transition-none"
             }`}
@@ -1124,7 +1127,8 @@ export default function App() {
                 interval={refreshInterval}
                 onIntervalChange={setRefreshInterval}
                 onRefresh={() => fetchState(undefined, true)}
-                loading={refreshing}
+                loading={loading && !refreshing}
+                isRefreshing={refreshing}
               />
               {showConfig ? (
                 <div className="flex items-center gap-2 bg-gray-100 p-1 rounded-lg animate-in fade-in slide-in-from-top-2">
