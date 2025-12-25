@@ -25,6 +25,8 @@ import {
   Trash2,
   FileCode,
   Settings,
+  Download,
+  ArrowRightLeft,
 } from "lucide-react";
 
 // --- TYPES ---
@@ -630,13 +632,37 @@ function StackInfoBanner({
 function DetailsPanel({
   resource,
   onClose,
+  allResources,
 }: {
   resource: Resource | null;
   onClose: () => void;
+  allResources: Resource[];
 }) {
   const consoleLink = resource ? getAwsConsoleLink(resource) : null;
   const handler =
     resource?.outputs?._metadata?.handler || resource?.outputs?.handler;
+
+  const relationships = useMemo(() => {
+    if (!resource) return { parents: [], children: [], references: [] };
+
+    const parents = allResources.filter((r) => r.urn === resource.parent);
+    const children = allResources.filter((r) => r.parent === resource.urn);
+
+    // Look for references in outputs
+    const resourceId = resource.id || "";
+    const resourceArn = resource.outputs?.arn || "";
+
+    const references = allResources.filter((r) => {
+      if (r.urn === resource.urn) return false;
+      const outputsStr = JSON.stringify(r.outputs || {});
+      return (
+        (resourceId && outputsStr.includes(resourceId)) ||
+        (resourceArn && outputsStr.includes(resourceArn))
+      );
+    });
+
+    return { parents, children, references };
+  }, [resource, allResources]);
 
   return (
     <div
@@ -663,7 +689,7 @@ function DetailsPanel({
         </button>
       </div>
       {resource && (
-        <div className="flex-1 overflow-y-auto p-6 space-y-8">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-20">
           <div className="space-y-4">
             <div>
               <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider">
@@ -692,6 +718,7 @@ function DetailsPanel({
               </div>
             </div>
           </div>
+
           {consoleLink && (
             <a
               href={consoleLink}
@@ -703,6 +730,61 @@ function DetailsPanel({
               <ExternalLink className="w-4 h-4" /> View in AWS Console{" "}
             </a>
           )}
+
+          {/* Relationships Section */}
+          {(relationships.parents.length > 0 ||
+            relationships.children.length > 0 ||
+            relationships.references.length > 0) && (
+            <div className="space-y-4">
+              <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-2">
+                <ArrowRightLeft className="w-3 h-3" /> Relationships
+              </label>
+              <div className="space-y-3">
+                {relationships.parents.map((r) => (
+                  <div
+                    key={r.urn}
+                    className="p-3 bg-gray-50 rounded-lg border border-gray-100"
+                  >
+                    <div className="text-[9px] font-bold text-gray-400 uppercase">
+                      Parent
+                    </div>
+                    <div className="text-sm font-semibold text-gray-700 truncate">
+                      {getResourceId(r)}
+                    </div>
+                  </div>
+                ))}
+                {relationships.children.length > 0 && (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase">
+                      Children ({relationships.children.length})
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {relationships.children.map((r) => (
+                        <div key={r.urn} className="text-xs text-gray-600 truncate">
+                          • {getResourceId(r)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {relationships.references.length > 0 && (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="text-[9px] font-bold text-gray-400 uppercase">
+                      Referenced By ({relationships.references.length})
+                    </div>
+                    <div className="mt-1 space-y-1">
+                      {relationships.references.map((r) => (
+                        <div key={r.urn} className="text-xs text-gray-600 truncate">
+                          • {getResourceId(r)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="text-[10px] font-black uppercase text-gray-400 tracking-wider flex items-center gap-2">
               <Database className="w-3 h-3" /> Outputs & Metadata
@@ -1246,6 +1328,7 @@ export default function App() {
       <DetailsPanel
         resource={selectedResource}
         onClose={() => setSelectedResource(null)}
+        allResources={resources}
       />
       {selectedResource && (
         <div
@@ -1784,6 +1867,19 @@ function GhostHunter({
       .sort((a, b) => a.typeName.localeCompare(b.typeName));
   }, [filteredOrphans]);
 
+  const exportOrphans = () => {
+    const data = JSON.stringify(filteredOrphans, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ghost-viewer-orphans-${config.appName}-${config.stage}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="sticky top-0 z-10 space-y-4 bg-gray-50/80 backdrop-blur-sm -mt-4 pt-4 pb-4">
@@ -1813,18 +1909,28 @@ function GhostHunter({
                 selected={selectedTypes}
                 onChange={setSelectedTypes}
               />
-              {(query || selectedTypes.length > 0) && (
+              <div className="flex items-center gap-2">
+                {(query || selectedTypes.length > 0) && (
+                  <button
+                    onClick={() => {
+                      setQuery("");
+                      setSelectedTypes([]);
+                    }}
+                    className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    title="Clear Filters"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
-                  onClick={() => {
-                    setQuery("");
-                    setSelectedTypes([]);
-                  }}
-                  className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors"
-                  title="Clear Filters"
+                  onClick={exportOrphans}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg border border-gray-200 transition-all text-sm font-medium"
+                  title="Export to JSON"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
                 </button>
-              )}
+              </div>
             </div>
             <div className="flex flex-wrap gap-4 items-center flex-shrink-0">
               <div className="flex bg-gray-100 p-1 rounded-lg gap-1">
