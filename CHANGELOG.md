@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.1.0...v1.2.0) (2025-12-26)
+
+
+### Features
+
+* enable npm provenance for trusted publishing ([1f2850b](https://github.com/the-human-mustachio/ghost-viewer/commit/1f2850bffb7e7de042ace19b5319fabdcb020a80))
+
 # [1.1.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.0.11...v1.1.0) (2025-12-26)
 
 
