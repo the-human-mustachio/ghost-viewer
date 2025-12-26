@@ -98,6 +98,24 @@ If you want to contribute or run Ghost Viewer from source:
 
 ---
 
+## 📦 Automated Releases
+
+This project uses **Semantic Release** to automate versioning and publishing. To trigger a release, your commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+- **`feat: ...`**: Triggers a **minor** release (e.g., 1.0.0 -> 1.1.0).
+- **`fix: ...`**: Triggers a **patch** release (e.g., 1.0.0 -> 1.0.1).
+- **`perf: ...`**: Triggers a **patch** release.
+- **`docs: ...`**: No release.
+- **`chore: ...`**: No release.
+- **`BREAKING CHANGE: ...`**: Triggers a **major** release (e.g., 1.0.0 -> 2.0.0).
+
+To run a release manually (requires `NPM_TOKEN` and `GITHUB_TOKEN`):
+```bash
+npm run semantic-release
+```
+
+---
+
 ## 📄 License
 
 MIT © [Matt Puccio](https://github.com/the-human-mustachio)
