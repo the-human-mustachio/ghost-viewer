@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.2.1...v1.3.0) (2025-12-26)
+
+
+### Features
+
+* refactor UI into smaller components and add frontend style guide ([80ae192](https://github.com/the-human-mustachio/ghost-viewer/commit/80ae1926b1acc6998cfdfa7db621afb9da873b73))
+
 ## [1.2.1](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.2.0...v1.2.1) (2025-12-26)
 
 
