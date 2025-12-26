@@ -1,1 +1,9 @@
+# [1.1.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.0.11...v1.1.0) (2025-12-26)
+
+
+### Features
+
+* add GitHub Action for automated releases ([9d1685f](https://github.com/the-human-mustachio/ghost-viewer/commit/9d1685f691b277efb8f3957490cc731a594207dd))
+* implement semantic-release for automated versioning and changelogs ([1c0952f](https://github.com/the-human-mustachio/ghost-viewer/commit/1c0952fb3a5804df4c41d36342a8eafb598b0353))
+
 # Changelog
