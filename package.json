@@ -3,6 +3,10 @@
   "version": "1.2.0",
   "description": "Visualizer and Orphan Hunter for SST State",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/the-human-mustachio/ghost-viewer.git"
+  },
   "publishConfig": {
     "access": "public"
   },
