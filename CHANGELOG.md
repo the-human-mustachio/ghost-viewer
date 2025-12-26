@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.2.0...v1.2.1) (2025-12-26)
+
+
+### Bug Fixes
+
+* add repository url to package.json for provenance validation ([4dec045](https://github.com/the-human-mustachio/ghost-viewer/commit/4dec0454af854284bb5abeed505d1762548bf17c))
+
 # [1.2.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.1.0...v1.2.0) (2025-12-26)
 
 
