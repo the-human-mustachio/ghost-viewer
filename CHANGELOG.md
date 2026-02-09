@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.4.0...v1.5.0) (2026-02-09)
+
+
+### Features
+
+* **ui:** display routeKey for API Gateway routes in resource ID ([b69d703](https://github.com/the-human-mustachio/ghost-viewer/commit/b69d703147dde8b288859e3cb21084c642e27c85))
+
 # [1.4.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.3.0...v1.4.0) (2026-02-09)
 
 
