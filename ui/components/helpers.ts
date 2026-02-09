@@ -202,7 +202,7 @@ export function getAwsConsoleLink(r: Resource): string | null {
 export function buildTree(
   allResources: Resource[],
   matchedUrns: Set<string>,
-  mode: "tree" | "categorized"
+  mode: "tree" | "categorized" | "grouped"
 ): TypeGroup[] {
   const nodeMap = new Map<string, TreeNode>();
   const roots: TreeNode[] = [];
@@ -219,7 +219,9 @@ export function buildTree(
     const sType = getSimpleType(r.type);
     const isPromoted = PROMOTED_TYPES.includes(sType);
     const shouldBeRoot =
-      mode === "categorized"
+      mode === "grouped"
+        ? true
+        : mode === "categorized"
         ? isPromoted || !r.parent || r.parent.includes("pulumi:pulumi:Stack")
         : !r.parent || r.parent.includes("pulumi:pulumi:Stack");
     if (!shouldBeRoot && r.parent && nodeMap.has(r.parent)) {

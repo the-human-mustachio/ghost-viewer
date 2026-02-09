@@ -8,6 +8,7 @@ import {
   List,
   Network,
   LayoutGrid,
+  Layers,
   ChevronDown,
   ChevronRight,
   FolderTree,
@@ -38,10 +39,10 @@ export function StateExplorer({
   lastRefreshed: Date | null;
 }) {
   const [query, setQuery] = useState("");
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [activeFilters, setActiveFilters] = useState<string[]>(["aws"]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<"list" | "tree" | "categorized">(
-    "categorized"
+  const [viewMode, setViewMode] = useState<"list" | "tree" | "categorized" | "grouped">(
+    "grouped"
   );
   const [expansionKey, setExpansionKey] = useState(0);
   const availableTypes = useMemo(() => {
@@ -217,6 +218,17 @@ export function StateExplorer({
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
+              <button
+                onClick={() => setViewMode("grouped")}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "grouped"
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-gray-500"
+                }`}
+                title="Group by Type"
+              >
+                <Layers className="w-4 h-4" />
+              </button>
             </div>
             <div className="flex bg-gray-100 p-1 rounded-lg gap-1 text-[10px] font-bold uppercase">
               {["all", "aws", "sst:aws", "sst"].map((f) => (
@@ -253,6 +265,8 @@ export function StateExplorer({
               ? "Categorized Resources"
               : viewMode === "tree"
               ? "Component Tree"
+              : viewMode === "grouped"
+              ? "Grouped by Type"
               : "Flat List"}{" "}
             <span className="text-gray-400 font-normal ml-2">
               {filteredItems.length} matched
