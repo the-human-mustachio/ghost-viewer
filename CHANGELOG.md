@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.3.0...v1.4.0) (2026-02-09)
+
+
+### Features
+
+* add S3 state browser to simplify selecting SST state files ([63bda60](https://github.com/the-human-mustachio/ghost-viewer/commit/63bda60a4ef45b7493bb822530c909858dd9f5e9))
+
 # [1.3.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.2.1...v1.3.0) (2025-12-26)
 
 
