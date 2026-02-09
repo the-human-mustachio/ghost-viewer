@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { Layers, Check, X, Settings, RefreshCw } from "lucide-react";
+import { Layers, Check, X, Settings, RefreshCw, Database } from "lucide-react";
 import { AutoRefreshButton } from "./components/AutoRefreshButton";
 import { DetailsPanel } from "./components/DetailsPanel";
 import { StateExplorer } from "./components/StateExplorer";
 import { GhostHunter } from "./components/GhostHunter";
+import { S3Browser } from "./components/S3Browser";
 import { COMMON_REGIONS } from "./components/constants";
 import { Resource, ScanResult, StateMetadata } from "./components/types";
 
@@ -40,6 +41,7 @@ export default function App() {
   const [statePath, setStatePath] = useState<string>("");
   const [s3Region, setS3Region] = useState("us-west-2");
   const [showConfig, setShowConfig] = useState(false);
+  const [showS3Browser, setShowS3Browser] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(0);
 
   // Hunter Persistant State
@@ -158,11 +160,13 @@ export default function App() {
       });
   }, []);
 
-  const handleUpdateConfig = () => {
+  const handleUpdateConfig = (newPath?: string, newRegion?: string) => {
+    const p = newPath || statePath;
+    const r = newRegion || s3Region;
     const finalPath =
-      statePath.startsWith("s3://") && s3Region
-        ? `${statePath}:${s3Region}`
-        : statePath;
+      p.startsWith("s3://") && r
+        ? `${p}:${r}`
+        : p;
 
     fetch("/api/config", {
       method: "POST",
@@ -172,7 +176,10 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         setShowConfig(false);
+        setShowS3Browser(false);
         setHunterResult(null); // Clear stale results
+        if (newPath) setStatePath(newPath);
+        if (newRegion) setS3Region(newRegion);
         fetchState(
           data.app && data.stage
             ? { app: data.app, stage: data.stage }
@@ -226,7 +233,14 @@ export default function App() {
                     </select>
                   )}
                   <button
-                    onClick={handleUpdateConfig}
+                    onClick={() => setShowS3Browser(true)}
+                    className="p-1.5 text-indigo-600 hover:bg-white rounded transition-colors"
+                    title="Browse S3"
+                  >
+                    <Database className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleUpdateConfig()}
                     className="p-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700"
                   >
                     <Check className="w-4 h-4" />
@@ -325,6 +339,13 @@ export default function App() {
         <div
           className="fixed inset-0 bg-black/10 z-40"
           onClick={() => setSelectedResource(null)}
+        />
+      )}
+
+      {showS3Browser && (
+        <S3Browser 
+          onSelect={(path, region) => handleUpdateConfig(path, region)}
+          onClose={() => setShowS3Browser(false)}
         />
       )}
     </div>

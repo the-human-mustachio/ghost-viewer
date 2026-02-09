@@ -7,7 +7,8 @@ import {
   ResourceGroupsTaggingAPIClient,
   GetResourcesCommand,
 } from "@aws-sdk/client-resource-groups-tagging-api";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -306,6 +307,65 @@ export function startServer(options: { port?: number; openBrowser?: boolean; isD
                 message = "AWS Credentials expired or invalid. Please check your environment or run 'aws sso login'.";
             }
             res.status(500).json({ error: message });
+        }
+    });
+
+    // 4. GET /api/s3/bootstrap
+    app.get("/api/s3/bootstrap", async (req, res) => {
+        const region = (req.query.region as string) || process.env.AWS_REGION || "us-east-1";
+        try {
+            const client = new SSMClient({ region });
+            const command = new GetParameterCommand({ Name: "/sst/bootstrap" });
+            const response = await client.send(command);
+            if (!response.Parameter?.Value) {
+                throw new Error("SST bootstrap parameter not found");
+            }
+            res.json(JSON.parse(response.Parameter.Value));
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // 5. GET /api/s3/list-apps
+    app.get("/api/s3/list-apps", async (req, res) => {
+        const { bucket, region } = req.query;
+        if (!bucket) return res.status(400).json({ error: "Bucket is required" });
+
+        try {
+            const client = new S3Client({ region: (region as string) || "us-east-1" });
+            const command = new ListObjectsV2Command({
+                Bucket: bucket as string,
+                Prefix: "app/",
+                Delimiter: "/"
+            });
+            const response = await client.send(command);
+            const apps = response.CommonPrefixes?.map(p => p.Prefix?.replace("app/", "").replace("/", "")) || [];
+            res.json(apps);
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
+        }
+    });
+
+    // 6. GET /api/s3/list-stages
+    app.get("/api/s3/list-stages", async (req, res) => {
+        const { bucket, region, app: appName } = req.query;
+        if (!bucket || !appName) return res.status(400).json({ error: "Bucket and App name are required" });
+
+        try {
+            const client = new S3Client({ region: (region as string) || "us-east-1" });
+            const command = new ListObjectsV2Command({
+                Bucket: bucket as string,
+                Prefix: `app/${appName}/`,
+                Delimiter: "/"
+            });
+            const response = await client.send(command);
+            const stages = response.Contents?.filter(c => c.Key?.endsWith(".json")).map(c => {
+                const parts = c.Key?.split("/");
+                return parts ? parts[parts.length - 1].replace(".json", "") : "";
+            }) || [];
+            res.json(stages);
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
         }
     });
 
