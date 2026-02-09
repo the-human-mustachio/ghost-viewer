@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.5.0...v1.6.0) (2026-02-09)
+
+
+### Features
+
+* **ui:** add grouped by type view and set as default with aws filter ([e0267e8](https://github.com/the-human-mustachio/ghost-viewer/commit/e0267e8c19ce172f8669c56799210849ae7dae8d))
+
 # [1.5.0](https://github.com/the-human-mustachio/ghost-viewer/compare/v1.4.0...v1.5.0) (2026-02-09)
 
 
