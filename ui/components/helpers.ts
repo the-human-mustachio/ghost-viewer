@@ -24,19 +24,36 @@ export function getHandlerName(r: Resource): string | null {
 
 export function getResourceId(r: Resource): string {
   // Return the physical ID or the last segment of the URN
-  if (r.id && typeof r.id === "string") return r.id;
-  if (r.outputs) {
+  let baseId = "N/A";
+  if (r.id && typeof r.id === "string") {
+    baseId = r.id;
+  } else if (r.outputs) {
     if (
       r.outputs.arn &&
       typeof r.outputs.arn === "string" &&
       !r.outputs.arn.includes("ciphertext")
     ) {
-      return r.outputs.arn.split(":").pop() || r.outputs.arn;
+      baseId = r.outputs.arn.split(":").pop() || r.outputs.arn;
+    } else if (r.outputs.name) {
+      baseId = safeRender(r.outputs.name);
     }
-    if (r.outputs.name) return safeRender(r.outputs.name);
   }
-  const parts = r.urn.split("::");
-  return parts[parts.length - 1] || "N/A";
+
+  if (baseId === "N/A") {
+    const parts = r.urn.split("::");
+    baseId = parts[parts.length - 1] || "N/A";
+  }
+
+  // Special handling for API Gateway Routes
+  if (
+    r.type.includes("apigateway") &&
+    r.type.toLowerCase().includes("route") &&
+    r.outputs?.routeKey
+  ) {
+    return `${baseId} : ${r.outputs.routeKey}`;
+  }
+
+  return baseId;
 }
 
 export function getSimpleType(type: string): string {
